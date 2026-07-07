@@ -1,16 +1,38 @@
 """
-HTTP 엔드포인트 정의
+서버 상태 확인 엔드포인트
 
-각 라우터는 특정 도메인의 API를 담당합니다:
-    - chat.py: 채팅 API
+Production 환경에서 필수적인 헬스체크 API입니다.
+로드밸런서, 쿠버네티스 등에서 서버 상태를 확인할 때 사용합니다.
+
+엔드포인트:
+    GET /api/v1/health/  - 기본 헬스체크 (main.py의 /api/v1 + routes의 /health prefix)
 """
+
+from datetime import UTC, datetime
 
 from fastapi import APIRouter
 
-from app.api.routes import chat, health
+from app.core.config import settings
 
-api_router = APIRouter()
-# 💡 prefix="/chat" → chat.router 안의 "/" 경로가 실제로는 "/chat/"으로 열림
-#    (창구 이름표를 붙여, 어느 도메인 API인지 URL만 보고 알 수 있게 함)
-api_router.include_router(chat.router, prefix="/chat", tags=["Chat"])
-api_router.include_router(health.router, prefix="/health", tags=["Health"])
+router = APIRouter()
+
+
+# 도커 이미지를 위해 구현
+@router.get("/")
+async def health_check() -> dict:
+    """
+    기본 헬스체크 엔드포인트
+
+    서버가 살아있는지 확인하는 가장 기본적인 API입니다.
+    로드밸런서의 헬스체크 대상으로 사용됩니다.
+
+    Returns:
+        dict: 서버 상태 정보
+    """
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(UTC).isoformat(),
+        "service": "lumi-agent",
+        "version": "0.5.0",
+        "environment": settings.environment,
+    }
